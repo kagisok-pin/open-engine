@@ -1,0 +1,12 @@
+{
+  "name": "open-engine",
+  "owner": { "name": "Kagiso Komane" },
+  "description": "Single-plugin marketplace for Open Engine",
+  "plugins": [
+    {
+      "name": "open-engine",
+      "source": "./",
+      "description": "Open Engine — cross-surface Linear-primary agent queue runner"
+    }
+  ]
+}
