@@ -17,13 +17,13 @@ This plugin is **persona-agnostic**. Determine the agent code for THIS run:
 - If the operator named one ("run Open Engine as **forge**"), use it.
 - Otherwise ask once: "Which persona should I run as?"
 
-Valid codes (lowercase persona codenames): `lattice`, `forge`, `xhantsilo`, `vector`, `sable`, `bastion`, `studio`, `loom`, `ledger`, `signal`, `prism`, `catalyst`.
+Valid codes (lowercase persona codenames): `lattice`, `forge`, `xhantsilo`, `vector`, `sable`, `bastion`, `studio`, `loom`, `ledger`, `signal`, `prism`, `catalyst`, `vantage`.
 
 Use the chosen `<code>` for the whole run. Your ledger marker is `AGENT STATUS :: <code>`; your task filter is the second title bracket `[<code>]`.
 
 ## Config (engine v1) — shared across personas
 
-- **Engine version:** `v1` (this plugin's version; compare against setup issue ARC-8's `version:` each run)
+- **Engine version:** `v1.1` (this plugin's version; compare against setup issue ARC-8's `version:` each run)
 - **Linear team:** Arc and Mantle — id `883576b4-05a3-4738-af6b-dfdfa1f17af6`
 - **Project:** Personal Agent Engine — id `67cf68a6-9eff-421e-8bd5-fde7d1e47588`
 - **Filter label:** `agent-instructions`

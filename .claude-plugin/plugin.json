@@ -2,7 +2,7 @@
   "name": "open-engine",
   "displayName": "Open Engine",
   "description": "Open Engine — cross-surface Linear-primary agent queue runner for the wagent-os. Runs in Claude Code and Cowork.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": { "name": "Kagiso Komane" },
   "license": "MIT"
 }
