@@ -23,7 +23,7 @@ Use the chosen `<code>` for the whole run. Your ledger marker is `AGENT STATUS :
 
 ## Config (engine v1) — shared across personas
 
-- **Engine version:** `v1.1` (this plugin's version; compare against setup issue ARC-8's `version:` each run)
+- **Engine version:** `v1.2` (this plugin's version; compare against setup issue ARC-8's `version:` each run)
 - **Linear team:** Arc and Mantle — id `883576b4-05a3-4738-af6b-dfdfa1f17af6`
 - **Project:** Personal Agent Engine — id `67cf68a6-9eff-421e-8bd5-fde7d1e47588`
 - **Filter label:** `agent-instructions`
@@ -36,10 +36,27 @@ Use the chosen `<code>` for the whole run. Your ledger marker is `AGENT STATUS :
 
 **Linear tools** (account connector): `list_issues`, `get_issue`, `save_issue` (set `state` to move status), `save_comment` (receipts + ledger; pass `id` to update in place), `list_comments`, `list_issue_statuses`. Note: this MCP has **no issue-delete/archive** — never assume you can self-clean issues; cleanup is a human UI/GraphQL job.
 
+## Creating issues (engine contract)
+
+Set these **at creation** — a backfill only fixes the past; the template is what stops the drift.
+
+- **Title:** `[agent instructions][<code>][task] <summary>`. Plain text only — `<`, `>` and `&` are stored as HTML entities, render literally, and mis-key every title-parsing consumer.
+- **`persona/<code>` label** — always, mirroring the title's 2nd bracket. Single-select group: Linear rejects a second persona server-side, so an ambiguous key is structurally impossible.
+- **`agent-instructions` label** — ONLY if the issue is meant to be agent-claimable.
+
+**Two deliberate off-queue idioms. Respect both; never "tidy" them away:**
+
+1. **Blocked work** — set `blockedBy` to the real dependency. A blocked issue is not eligible: skip it rather than re-deriving the block every run.
+2. **Human gates** — to file work agents must NOT auto-claim (a validation or approval gate), omit `agent-instructions` AND use an off-format title (e.g. `[VALIDATE][<code>]`). Still set `persona/<code>` — persona keying and eligibility are orthogonal.
+
+**Never add `agent-instructions` to an existing issue as cleanup.** It is the queue's eligibility switch, not metadata; adding it silently converts a human gate into auto-claimable agent work.
+
+**`save_issue`'s `labels` REPLACES the whole label set** — omitted labels are deleted, it does not append. Always read-modify-write (`get_issue` → union → write). Sending only the new label strips `agent-instructions` and silently makes issues unclaimable by every persona.
+
 ## A run (heartbeat) — do these in order, then STOP
 
 1. **Open the ledger** (ARC-6). Find *your* comment (first line `AGENT STATUS :: <code>`) via `list_comments`; if none exists, you will create it in step 11. Set `Last queue result: checking`.
-2. **Standing preflight:** read setup issue ARC-8's `version:`. Compare to this plugin's version (`v1`, and to your ledger `Local context:` line). If ARC-8 is **ahead**, you are running a stale plugin — tell the operator to update it (`/plugin marketplace update` in Code, or re-sync the plugin on desktop), note it in the ledger, and do NOT fake `AGENT APPLIED`. If you are current, nothing to do. Record the applied version on your ledger `Local context:` line. *(Version lives on the ledger — no local state file.)*
+2. **Standing preflight:** read setup issue ARC-8's `version:`. Compare to this plugin's version (the **Engine version** in Config above, and to your ledger `Local context:` line). If ARC-8 is **ahead**, you are running a stale plugin — tell the operator to update it (`/plugin marketplace update` in Code, or re-sync the plugin on desktop), note it in the ledger, and do NOT fake `AGENT APPLIED`. If you are current, nothing to do. Record the applied version on your ledger `Local context:` line. *(Version lives on the ledger — no local state file.)*
 3. **Optional-skill preflight:** only for optional skills you have already subscribed to (recorded on your ledger `Optional skills:` line). Apply same-scope updates and post `AGENT SKILL UPDATED` only after a real update. Do NOT browse/install unapproved optional skills on a routine run.
 4. **Check AGENT HUMAN HOLD issues** (Agent Needs Input, your code, holding). If one now shows `AGENT HUMAN ANSWERED`: move it to Agent Working, post `AGENT RESUMED`, finish it, update ledger, STOP.
 5. **Check AGENT BLOCKED issues** (Agent Needs Input, your code, blocked). If the answer is now on the issue: move to Agent Working, post `AGENT UNBLOCKED` then `AGENT RESUMED`, finish, update ledger, STOP.
