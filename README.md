@@ -1,6 +1,6 @@
 # Open Engine (plugin)
 
-Cross-surface runner for the **Open Engine** agent queue in Linear (team *Arc and Mantle*). One package, installs in both **Claude Code** and the **Claude desktop app** (Cowork + Chat).
+Cross-surface runner for the **Open Engine** agent queue in Linear. One package, installs in both **Claude Code** and the **Claude desktop app** (Cowork + Chat).
 
 This repo is simultaneously the **marketplace**, the **plugin**, and the **skill host**:
 
@@ -28,13 +28,24 @@ Add Linear **once** as an account connector: **Settings → Connectors → Add c
 
 **Desktop app (Cowork + Chat):** plugin manager → **Marketplaces** → Add from a repository → `kagisok-pin/open-engine` → **Discover** → install **open-engine**.
 
+## Configure
+
+The plugin ships **no workspace identifiers** — it is generic by design. On first run it resolves its config, first hit wins:
+
+1. Named in the invocation — *"run Open Engine as `<code>` on `<team>`"*.
+2. An `Open Engine config` block in the consuming project's adapter (`CLAUDE.md` / `AGENTS.md`).
+3. Discovery — a single team carrying the eligibility label; standing issues found by their `[agent instructions][all agents][standing_*]` titles.
+4. Otherwise it asks once.
+
+Set up your Linear team with: an eligibility label (default `agent-instructions`), the agent workflow states (`Agent Todo`, `Agent Working`, `Agent Needs Input`, `Agent Review`, `Agent Done`), and three standing issues — setup/version, status ledger, and optional-skill directory. See `skills/open-engine/SKILL.md` for the full contract.
+
 ## Use
 
-Say *"run the Open Engine queue as `<persona>`"* (e.g. `lattice`, `forge`, `xhantsilo`, `sable`…) or invoke `/open-engine:open-engine`. It runs one task per invocation. Cadence is manual by default.
+Say *"run the Open Engine queue as `<persona>`"* or invoke `/open-engine:open-engine`. It runs one task per invocation. Cadence is manual by default.
 
 ## Notes
 
 - **Persona-agnostic:** the agent code is chosen per run, not baked in. One plugin serves every persona.
-- **Surface-agnostic:** all state lives in Linear (the ledger comment `ARC-6`); no local files, so it runs the same in Code and Cowork.
+- **Surface-agnostic:** all state lives in Linear (the ledger issue's comments); no local files, so it runs the same in Code and Cowork.
 - **No destructive ops:** the Linear MCP cannot delete/archive issues or labels — cleanup is a human UI/GraphQL job.
-- Owned as a LATTICE/FORGE platform artifact; version bumps go in `plugin.json` only.
+- Version bumps go in `plugin.json` only.
