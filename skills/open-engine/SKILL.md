@@ -23,7 +23,7 @@ Use the chosen `<code>` for the whole run. Your ledger marker is `AGENT STATUS :
 
 ## Config (engine v1) — shared across personas
 
-- **Engine version:** `v1.2` (this plugin's version; compare against setup issue ARC-8's `version:` each run)
+- **Engine version:** `v1.3` (this plugin's version; compare against setup issue ARC-8's `version:` each run)
 - **Linear team:** Arc and Mantle — id `883576b4-05a3-4738-af6b-dfdfa1f17af6`
 - **Project:** Personal Agent Engine — id `67cf68a6-9eff-421e-8bd5-fde7d1e47588`
 - **Filter label:** `agent-instructions`
@@ -61,7 +61,11 @@ Set these **at creation** — a backfill only fixes the past; the template is wh
 4. **Check AGENT HUMAN HOLD issues** (Agent Needs Input, your code, holding). If one now shows `AGENT HUMAN ANSWERED`: move it to Agent Working, post `AGENT RESUMED`, finish it, update ledger, STOP.
 5. **Check AGENT BLOCKED issues** (Agent Needs Input, your code, blocked). If the answer is now on the issue: move to Agent Working, post `AGENT UNBLOCKED` then `AGENT RESUMED`, finish, update ledger, STOP.
 6. **Check delegated issues** you handed to others; post `AGENT FOLLOW-UP` if state changed.
-7. **Otherwise claim** the oldest eligible Agent Todo issue. Eligible = label `agent-instructions` + title starts `[agent instructions]` + second bracket == `<code>`. Move it to Agent Working, post `AGENT CLAIMED`. **Optimistic-claim check:** re-read; if a *different* code's `AGENT CLAIMED` has an earlier Linear-server timestamp, yield (move back to Agent Todo / skip). Otherwise proceed.
+7. **Otherwise claim** the **highest-priority** eligible Agent Todo issue, oldest as tiebreak. Eligible = label `agent-instructions` + title starts `[agent instructions]` + second bracket == `<code>`, and not blocked (see *Blocked work* above).
+
+   **Priority order — `1` Urgent → `2` High → `3` Medium → `4` Low → `0` No priority.** Linear encodes "no priority" as `0`, so a naive ascending numeric sort puts unprioritised work *ahead of Urgent*. Sort `0` **last**. Within one band, oldest `createdAt` wins. Rank the whole eligible set before claiming — never claim the first match you read.
+
+   Move it to Agent Working, post `AGENT CLAIMED`. **Optimistic-claim check:** re-read; if a *different* code's `AGENT CLAIMED` has an earlier Linear-server timestamp, yield (move back to Agent Todo / skip). Otherwise proceed.
 8. **Do only the scoped work.** Done, no human judgement needed → post `AGENT DONE`, move to **Agent Done**. Done but needs review/QA/approval/publishing → post `AGENT DONE`, move to **Agent Review** (a human moves Review → Agent Done).
 9. **If you need an answer:** belongs on the Linear issue → ask ONE specific question, post `AGENT BLOCKED`, move to Agent Needs Input, ledger `blocked ISSUE-ID`, STOP. Belongs in the operator's own agent thread/app → post `AGENT HUMAN HOLD`, move to Agent Needs Input, ledger `holding ISSUE-ID`, STOP.
 10. **If execution fails unexpectedly:** post `AGENT FAILED` with the last safe step + retry count.
