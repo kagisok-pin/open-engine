@@ -3,7 +3,7 @@ name: open-engine
 description: Run the Open Engine queue in Linear. Use when asked to "run the queue", "run Open Engine", "check the agent queue", or run the agent loop — in either the Claude Code tab or Cowork. Determines which persona to run as, claims one assigned task, does the scoped work, leaves typed receipts, and updates the status ledger — exactly one task per run.
 ---
 
-# Open Engine — runner (v1.2)
+# Open Engine — runner (v1.3)
 
 Cross-surface runner for the Open Engine queue. A persona-agent finds its assigned work in Linear, claims one task, does it, leaves typed receipts, and updates the ledger. Runs in **either** the Claude Code tab or the Cowork tab — everything goes through the account-level **Linear** connector, so no local files are required.
 
@@ -13,8 +13,9 @@ Linear must be connected as an **account connector** (Settings → Connectors �
 
 ## Step 0 — Identify this run's persona (agent code)
 
-This plugin is **persona-agnostic**. Determine the agent code for THIS run:
+This plugin is **persona-agnostic**. Determine the agent code for THIS run — first hit wins:
 - If the operator named one ("run Open Engine as **`<code>`**"), use it.
+- Else if the consuming project's adapter carries an `Open Engine config` block with an `agent code:` key, use that. A per-project adapter names exactly one persona, so this is deterministic — prefer it over asking.
 - Otherwise ask once: "Which persona should I run as?"
 
 Agent codes are lowercase persona codenames defined by your workspace (see `personas` in Config). Use the chosen `<code>` for the whole run. Your ledger marker is `AGENT STATUS :: <code>`; your task filter is the second title bracket `[<code>]`.
@@ -25,7 +26,10 @@ This plugin ships **no workspace identifiers**. Resolve them once at run start, 
 
 1. **Named in the invocation** — "run Open Engine as `<code>` on `<team>`".
 2. **An `Open Engine config` block** in the consuming project's adapter (`CLAUDE.md` / `AGENTS.md`).
-3. **Discovery** — if the connector exposes exactly one team carrying the eligibility label, use it; the standing issues are then found by their `[agent instructions][all agents][standing_*]` titles.
+3. **Discovery** — resolve the team with `list_issues(label="<eligibility label>")` and read `teamId` off the results. That works from **zero** prior workspace knowledge in a single call. **If more than one distinct `teamId` comes back, STOP and ask** — there is no safe tie-break, and guessing silently binds every consuming project to the wrong queue. Then find the standing issues among that team's issues carrying the eligibility label at status `Standing`, keyed by their third title bracket: `[standing_status]` → ledger, `[standing_skill]` → setup, `[optional_standing_skill_directory]` → optional-skill directory.
+   > **Do not resolve the team via `list_issue_labels(name=…)`.** That call is scope-inconsistent: with no `team` argument it returns only *workspace-level* labels, so a team-level eligibility label comes back as `[]` — indistinguishable from "the label does not exist". Verified against the live connector 2026-07-19.
+   >
+   > **Discovery is the weakest rung — prefer step 2.** It has never been exercised against a workspace containing more than one team, so the tie-break above ships unproven. A declared config block cannot silently drift onto the wrong workspace; an inference can.
 4. Otherwise **ask once**, then proceed.
 
 | Key | Meaning | Default |
@@ -33,12 +37,12 @@ This plugin ships **no workspace identifiers**. Resolve them once at run start, 
 | `team` | Linear team hosting the queue | resolve |
 | `project` | Linear project | resolve |
 | `label` | Eligibility label | `agent-instructions` |
-| `setup_issue` | Standing setup / version issue | find by title |
-| `ledger_issue` | Status ledger issue | find by title |
-| `skills_issue` | Optional-skill directory issue | find by title |
-| `personas` | Valid agent codes for this workspace | resolve |
+| `setup_issue` | Standing setup / version issue | find by `[standing_skill]` title bracket |
+| `ledger_issue` | Status ledger issue | find by `[standing_status]` title bracket |
+| `skills_issue` | Optional-skill directory issue | find by `[optional_standing_skill_directory]` title bracket |
+| `personas` | Valid agent codes for this workspace | `list_issue_labels(team=<resolved>)` filtered to parent `persona`; else ask once |
 
-- **Engine version:** `v1.2` — compare against the setup issue's `version:` each run.
+- **Engine version:** `v1.3` — compare against the setup issue's `version:` each run.
 - **Runtime field:** set to the tab you are in — `Claude Code` or `Cowork`.
 
 **Data rule (pointers-only):** issues may hold task instructions, outcomes, receipts, and references (project slugs, memory-system thought IDs, file paths). NEVER put raw customer PII, deal financials, credentials/secrets, or entity-confidential detail in a Linear issue — keep those in your memory/context store and reference by pointer.
