@@ -30,14 +30,15 @@ Add Linear **once** as an account connector: **Settings → Connectors → Add c
 
 ## Configure
 
-The plugin ships **no workspace identifiers** — it is generic by design. On first run it resolves its config, first hit wins:
+The plugin ships **no workspace identifiers** — it is generic by design. It bootstraps from ONE explicit value, the **team**, then reads everything else from the **setup issue**, whose body is the authoritative config block:
 
-1. Named in the invocation — *"run Open Engine as `<code>` on `<team>`"*.
-2. An `Open Engine config` block in the consuming project's adapter (`CLAUDE.md` / `AGENTS.md`).
-3. Discovery — a single team carrying the eligibility label; standing issues found by their `[agent instructions][all agents][standing_*]` titles.
-4. Otherwise it asks once.
+1. Resolve the `team` — from the invocation (*"run Open Engine as `<code>` on `<team>`"*), an `Open Engine config` block in the consuming project's adapter, or discovery (`list_issues(label="agent-instructions")`, reading `teamId` off the results; stop and ask if more than one distinct team appears). A declared config block is preferred over discovery. If none is unambiguous, it asks once.
+2. Find the **setup issue** by the exact title bracket-token `[standing_skill]`, and read `project`, `label`, and the ledger + skills issue IDs from its body.
+3. Resolve `personas` from the `persona` label group (minus the reserved `all`) and the claimable state (`Agent Todo`).
 
-Set up your Linear team with: an eligibility label (default `agent-instructions`), the agent workflow states (`Agent Todo`, `Agent Working`, `Agent Needs Input`, `Agent Review`, `Agent Done`), and three standing issues — setup/version, status ledger, and optional-skill directory. See `skills/open-engine/SKILL.md` for the full contract.
+Resolution is per-key and **stops to ask** on any ambiguous or unverifiable result — it never proceeds on an unconfirmed guess. See `skills/open-engine/SKILL.md` → **Config** for the full contract.
+
+To set up a new Linear team: add an eligibility label (default `agent-instructions`) and a `persona` label group; create the agent workflow states (`Agent Todo`, `Agent Working`, `Agent Needs Input`, `Agent Review`, `Agent Done`, plus `Standing`); and file three standing issues whose third title bracket-tokens are exactly `standing_skill` (setup/version — its body is the config block), `standing_status` (status ledger), and `optional_standing_skill_directory` (optional-skill directory).
 
 ## Use
 
