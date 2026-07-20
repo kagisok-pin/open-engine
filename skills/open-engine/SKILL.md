@@ -20,30 +20,56 @@ This plugin is **persona-agnostic**. Determine the agent code for THIS run — f
 
 Agent codes are lowercase persona codenames defined by your workspace (see `personas` in Config). Use the chosen `<code>` for the whole run. Your ledger marker is `AGENT STATUS :: <code>`; your task filter is the second title bracket `[<code>]`.
 
-## Config — supplied per install, never baked in
+## Config — resolved at run start, never baked in
 
-This plugin ships **no workspace identifiers**. Resolve them once at run start, first hit wins:
+This plugin ships **no workspace identifiers**. It bootstraps from ONE explicit value — the **team** — then reads everything else from the **setup issue**, whose body is the authoritative config block. Resolution is **per key**, and any step that is ambiguous, empty, or unverifiable **stops and asks** — never proceed on a single-but-unconfirmed guess (a wrong-but-unique answer is indistinguishable from a right one, and this engine then *writes*: it claims issues and rewrites the ledger).
 
-1. **Named in the invocation** — "run Open Engine as `<code>` on `<team>`".
-2. **An `Open Engine config` block** in the consuming project's adapter (`CLAUDE.md` / `AGENTS.md`).
-3. **Discovery** — resolve the team with `list_issues(label="<eligibility label>")` and read `teamId` off the results. That works from **zero** prior workspace knowledge in a single call. **If more than one distinct `teamId` comes back, STOP and ask** — there is no safe tie-break, and guessing silently binds every consuming project to the wrong queue. Then find the standing issues among that team's issues carrying the eligibility label at status `Standing`, keyed by their third title bracket: `[standing_status]` → ledger, `[standing_skill]` → setup, `[optional_standing_skill_directory]` → optional-skill directory.
-   > **Do not resolve the team via `list_issue_labels(name=…)`.** That call is scope-inconsistent: with no `team` argument it returns only *workspace-level* labels, so a team-level eligibility label comes back as `[]` — indistinguishable from "the label does not exist". Verified against the live connector 2026-07-19.
-   >
-   > **Discovery is the weakest rung — prefer step 2.** It has never been exercised against a workspace containing more than one team, so the tie-break above ships unproven. A declared config block cannot silently drift onto the wrong workspace; an inference can.
-4. Otherwise **ask once**, then proceed.
+**Step A — resolve the `team`** (first hit wins; each must yield exactly ONE team or fall through):
 
-| Key | Meaning | Default |
-|-----|---------|---------|
-| `team` | Linear team hosting the queue | resolve |
-| `project` | Linear project | resolve |
-| `label` | Eligibility label | `agent-instructions` |
-| `setup_issue` | Standing setup / version issue | find by `[standing_skill]` title bracket |
-| `ledger_issue` | Status ledger issue | find by `[standing_status]` title bracket |
-| `skills_issue` | Optional-skill directory issue | find by `[optional_standing_skill_directory]` title bracket |
-| `personas` | Valid agent codes for this workspace | `list_issue_labels(team=<resolved>)` filtered to parent `persona`; else ask once |
+1. **Invocation** — "run Open Engine as `<code>` on `<team>`".
+2. **Adapter** — an `Open Engine config` block in the consuming project's `CLAUDE.md` / `AGENTS.md`.
+3. **Discovery** — call `list_issues(label="<eligibility label>")` and read `teamId` off the results; this resolves the team in one call from zero prior workspace knowledge. **If more than one distinct `teamId` comes back, STOP and ask** — there is no safe tie-break, and guessing silently binds the plugin to the wrong queue. (Paginate — a busy label overflows one page; follow `cursor`, narrowing with `state`, until you have either seen a second `teamId` or confirmed a single one across all pages.)
+4. If A1–A3 do not yield exactly one team, **ask once**.
+
+> **Do not resolve the team via `list_issue_labels(name=…)`.** That call is scope-inconsistent: with no `team` argument it returns only *workspace-level* labels, so a team-scoped eligibility label comes back as `[]`, indistinguishable from "the label does not exist" (verified against the live connector 2026-07-19). The team is the bootstrap anchor — you cannot find it *by* an unscoped label query.
+>
+> **Discovery is the weakest rung — prefer step 2 (a declared config block).** A declared block cannot silently drift onto the wrong workspace; an inference can, and the multi-team tie-break above ships unproven — it has never run against a workspace with more than one team.
+>
+> (The eligibility *label* is `agent-instructions`, hyphen; the title's first *bracket* is `[agent instructions]`, space — different strings, both required.)
+
+**Step B — find the `setup_issue`, then read its body as config.** Among the team's issues carrying the eligibility label, the three standing issues are keyed by the **exact** third bracket-token of their title — **exact string equality, never a glob or substring** (`standing_skill` is a substring of `optional_standing_skill_directory`, and `standing_*` does not match the `optional_`-prefixed one at all):
+
+| Config key | Title 3rd-bracket token (match exactly) | Role |
+|---|---|---|
+| `setup_issue` | `standing_skill` | version + config block |
+| `ledger_issue` | `standing_status` | status ledger |
+| `skills_issue` | `optional_standing_skill_directory` | optional-skill directory |
+
+The token names are historical and do **not** track the key names — map by this table, never by keyword ("skill" appears in two tokens; the one you want for `skills_issue` is the `*_directory` one). Open the `setup_issue`; its body states `version`, team, project, eligibility label, and the ledger + skills issue IDs. Take `project` and `label` from there.
+
+**Cross-check, don't trust.** The `ledger_issue` / `skills_issue` found by bracket-token MUST equal the IDs the setup-issue body names. On any mismatch, empty result, or more-than-one match for any key → **stop and ask**.
+
+**Step C — resolve the rest:**
+
+- `personas` — children of the `persona` label group (`list_issue_labels(team=…)`), **excluding the reserved `all` token** — `all` is the broadcast target for `[all agents]` standing issues, not a claimable code (it is structurally identical to a real persona label; exclude it by token, not by shape). A code whose label description records an open lifecycle decision is **contested** — surface it with the caveat; neither silently include nor silently drop it.
+- `claimable status` — `list_issue_statuses(team=…)`. **Only `Agent Todo` is claimable.** `Standing`, `Agent Working`, `Agent Needs Input`, `Agent Review`, `Agent Done`, `Backlog`, `Canceled`, `Duplicate` are not — never claim a `Standing` issue; those are the engine's own records (ledger / setup / skills).
+- `ledger comment contract` — the `AGENT STATUS :: <code>` template in the **Ledger** section below; for a persona's first-ever run, there is no prior comment to copy — use that template.
+
+**Pagination discipline.** Every `list_*` verb is paged with differing caps; one call is not a complete view. Narrow with `query` / `label` / `state` filters and follow `cursor`. For the eligibility sweep, filter `state="Agent Todo"` — an unfiltered `label` sweep can overflow the response.
+
+| Key | Meaning | Source |
+|---|---|---|
+| `team` | Linear team hosting the queue | Step A |
+| `setup_issue` | version + config block | Step B — bracket-token `standing_skill` |
+| `project` | Linear project | setup-issue body |
+| `label` | Eligibility label (default `agent-instructions`) | setup-issue body |
+| `ledger_issue` | Status ledger | setup body + bracket-token `standing_status` |
+| `skills_issue` | Optional-skill directory | setup body + bracket-token `optional_standing_skill_directory` |
+| `personas` | Valid agent codes | `persona` label group minus `all` |
+| `claimable status` | Which state may be claimed | `Agent Todo` only |
 
 - **Engine version:** `v1.3` — compare against the setup issue's `version:` each run.
-- **Runtime field:** set to the tab you are in — `Claude Code` or `Cowork`.
+- **Runtime field:** the tab you are in — `Claude Code` or `Cowork`.
 
 **Data rule (pointers-only):** issues may hold task instructions, outcomes, receipts, and references (project slugs, memory-system thought IDs, file paths). NEVER put raw customer PII, deal financials, credentials/secrets, or entity-confidential detail in a Linear issue — keep those in your memory/context store and reference by pointer.
 
