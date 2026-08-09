@@ -3,7 +3,7 @@ name: open-engine
 description: Run the Open Engine queue in Linear. Use when asked to "run the queue", "run Open Engine", "check the agent queue", or run the agent loop — in either the Claude Code tab or Cowork. Determines which persona to run as, claims one assigned task, does the scoped work, leaves typed receipts, and updates the status ledger — exactly one task per run.
 ---
 
-# Open Engine — runner (v1.4)
+# Open Engine — runner (v1.5)
 
 Cross-surface runner for the Open Engine queue. A persona-agent finds its assigned work in Linear, claims one task, does it, leaves typed receipts, and updates the ledger. Runs in **either** the Claude Code tab or the Cowork tab — everything goes through the account-level **Linear** connector, so no local files are required.
 
@@ -68,7 +68,7 @@ The token names are historical and do **not** track the key names — map by thi
 | `personas` | Valid agent codes | `persona` label group minus `all` |
 | `claimable status` | Which state may be claimed | `Agent Todo` only |
 
-- **Engine version:** `v1.4` — compare against the setup issue's `version:` each run.
+- **Engine version:** `v1.5` — compare against the setup issue's `version:` each run.
 - **Runtime field:** the tab you are in — `Claude Code` or `Cowork`.
 
 **Data rule (pointers-only):** issues may hold task instructions, outcomes, receipts, and references (project slugs, memory-system thought IDs, file paths). NEVER put raw customer PII, deal financials, credentials/secrets, or entity-confidential detail in a Linear issue — keep those in your memory/context store and reference by pointer.
@@ -131,7 +131,9 @@ Comments get long; the operator must be able to act without re-reading the whole
 ```
 
 - It is the **last** block in the comment — nothing after it.
-- One line each; never omit `Need from you` — write "nothing, this is FYI" when the hand-back needs no action (e.g. an `AGENT DONE` → Agent Done).
+- One line each; never omit `Need from you`.
+- **`Need from you: nothing` is legal ONLY when the issue lands in `Agent Done`.** If the issue lands in **`Agent Review`**, a human gate is the entire reason it is there — so this line MUST be a specific question or an actionable ask, phrased as the thing the operator does next. "Nothing blocking", "for your review", "awaiting sign-off" and "<other agent> reviews this" are **not asks**. Name the decision to be taken, or name the action to be performed. If you genuinely cannot name one, the issue does not belong in `Agent Review` — send it to `Agent Done`.
+- **A comment that materially changes a prior answer is itself a hand-back and carries its own trailer**, whatever token it uses. A correction that reverses an earlier recommendation without restating `Need from you` leaves the operator acting on the superseded version, and the thread reads forward-wrong to everyone after them.
 - It **summarises**; it does not replace the detail above it. The full reasoning still goes in the body.
 - The `▶ SYNOPSIS — FOR <operator>` marker line is fixed and literal so it stays greppable and scannable. `<operator>` is the `Human/operator` named on the ledger (here, Kagiso).
 
