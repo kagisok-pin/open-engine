@@ -3,7 +3,7 @@ name: open-engine
 description: Run the Open Engine queue in Linear. Use when asked to "run the queue", "run Open Engine", "check the agent queue", or run the agent loop — in either the Claude Code tab or Cowork. Determines which persona to run as, claims one assigned task, does the scoped work, leaves typed receipts, and updates the status ledger — exactly one task per run.
 ---
 
-# Open Engine — runner (v1.5)
+# Open Engine — runner (v1.5.1)
 
 Cross-surface runner for the Open Engine queue. A persona-agent finds its assigned work in Linear, claims one task, does it, leaves typed receipts, and updates the ledger. Runs in **either** the Claude Code tab or the Cowork tab — everything goes through the account-level **Linear** connector, so no local files are required.
 
@@ -68,7 +68,7 @@ The token names are historical and do **not** track the key names — map by thi
 | `personas` | Valid agent codes | `persona` label group minus `all` |
 | `claimable status` | Which state may be claimed | `Agent Todo` only |
 
-- **Engine version:** `v1.5` — compare against the setup issue's `version:` each run.
+- **Engine version:** `v1.5.1` — compare against the setup issue's `version:` each run.
 - **Runtime field:** the tab you are in — `Claude Code` or `Cowork`.
 
 **Data rule (pointers-only):** issues may hold task instructions, outcomes, receipts, and references (project slugs, memory-system thought IDs, file paths). NEVER put raw customer PII, deal financials, credentials/secrets, or entity-confidential detail in a Linear issue — keep those in your memory/context store and reference by pointer.
@@ -107,7 +107,10 @@ Set these **at creation** — a backfill only fixes the past; the template is wh
    **Priority order — `1` Urgent → `2` High → `3` Medium → `4` Low → `0` No priority.** Linear encodes "no priority" as `0`, so a naive ascending numeric sort puts unprioritised work *ahead of Urgent*. Sort `0` **last**. Within one band, oldest `createdAt` wins. Rank the whole eligible set before claiming — never claim the first match you read.
 
    Move it to Agent Working, post `AGENT CLAIMED`. **Optimistic-claim check:** re-read; if a *different* code's `AGENT CLAIMED` has an earlier Linear-server timestamp, yield (move back to Agent Todo / skip). Otherwise proceed.
-8. **Do only the scoped work.** Done, no human judgement needed → post `AGENT DONE`, move to **Agent Done**. Done but needs review/QA/approval/publishing → post `AGENT DONE`, move to **Agent Review** (a human moves Review → Agent Done). Either way, the `AGENT DONE` comment MUST end with the **Synopsis trailer** (see below).
+8. **Do only the scoped work.** Done, no human judgement needed → post `AGENT DONE`, move to **Agent Done**. Done but needs review/QA/approval/publishing → post `AGENT DONE`, move to **Agent Review** (a human moves Review → Agent Done).
+
+   > **`Agent Review` is for DECISION-REQUIRED work only** — a human must choose, approve, rule or sign. Work that is finished and needs nothing from anyone goes to **Agent Done** with a digest, **not** to Review. Review is the operator's queue, and filling it with FYI work is what makes that queue unreadable: the cost is paid by the one person who cannot delegate reading it. If you are moving an issue to Review because you are unsure, that is not a reason — name the decision or send it to Done.
+   Either way, the `AGENT DONE` comment MUST end with the **Synopsis trailer** (see below).
 9. **If you need an answer:** belongs on the Linear issue → ask ONE specific question, post `AGENT BLOCKED`, move to Agent Needs Input, ledger `blocked ISSUE-ID`, STOP. Belongs in the operator's own agent thread/app → post `AGENT HUMAN HOLD`, move to Agent Needs Input, ledger `holding ISSUE-ID`, STOP. The `AGENT BLOCKED` / `AGENT HUMAN HOLD` comment MUST end with the **Synopsis trailer** (see below).
 10. **If execution fails unexpectedly:** post `AGENT FAILED` with the last safe step + retry count. The `AGENT FAILED` comment MUST end with the **Synopsis trailer** (see below).
 11. **Update your ledger comment** (in place — never a new one) and STOP after exactly one task issue.
